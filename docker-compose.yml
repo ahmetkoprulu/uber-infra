@@ -1,0 +1,22 @@
+version: "3.7"
+
+services:
+  redis:
+    image: "redis:alpine"
+    restart: always
+    # environment:
+    #   MONGO_INITDB_ROOT_USERNAME: root
+    #   MONGO_INITDB_ROOT_PASSWORD: 1234
+    ports:
+      - 6379:6379
+
+  driver-service:
+    depends_on:
+      - redis
+    ports:
+      - 3000:3000
+    build:
+      context: ./services/driver-service
+      dockerfile: Dockerfile
+    # environment:
+    #   REDIS_CS: [redis[s]:]//[[user][:password@]][host][:port][/db-number][?db=db-number[&password=bar[&option=value]]]

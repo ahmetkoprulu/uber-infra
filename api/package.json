@@ -1,7 +1,7 @@
 {
-  "name": "driver-service",
+  "name": "taxi-api",
   "version": "0.0.1",
-  "description": "Service that responsible for collecting driver locations.",
+  "description": "General purpose api.",
   "main": "./src/index.js",
   "scripts": {
     "dev": "NODE_ENV=development npx nodemon app.js",
@@ -10,7 +10,5 @@
   },
   "author": "ahmet koprulu",
   "license": "ISC",
-  "dependencies": {
-    "cors": "^2.8.5"
-  }
+  "dependencies": {}
 }

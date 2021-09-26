@@ -2,54 +2,33 @@ const path = require("path");
 const redis = require("redis");
 const geoRedis = require("georedis");
 const express = require("express");
+const cors = require("cors");
 const app = express();
+app.use(
+  cors({
+    origin: "*",
+  })
+);
 const http = require("http").createServer(app);
 const io = require("socket.io")(http, {
   cors: { origin: "*" },
 });
+const { redisOptions } = require("../../helpers/consts");
+const socketioJwt = require("socketio-jwt");
 
-var options = {
-  withCoordinates: true, // Will provide coordinates with locations, default false
-  withHashes: true, // Will provide a 52bit Geohash Integer, default false
-  withDistances: true, // Will provide distance from query, default false
-  order: "ASC", // or 'DESC' or true (same as 'ASC'), default false
-  units: "m", // or 'km', 'mi', 'ft', default 'm'
-  count: 100, // Number of results to return, default undefined
-  accurate: true, // Useful if in emulated mode and accuracy is important, default false
-};
-
-var redisOptions = {
-  host: "redis",
-  port: 6379,
-};
-
+// Express configurations
 var publicPath = path.join(__dirname, "public");
 app.use(express.static(publicPath));
 
-console.log("[Driver Service] Starting HTTP Service...");
+io.use(
+  socketioJwt.authorize({
+    secret: "some-secret",
+    handshake: true,
+    auth_header_required: true,
+  })
+);
 
-app.get("/", function (req, res) {
-  res.send("Helllloooooo");
-});
-
-app.get("/drivers", function (req, res) {
-  var client = redis.createClient(redisOptions);
-  var geoClient = geoRedis.initialize(client);
-  geoClient.nearby(
-    { latitude: req.query.lat, longitude: req.query.long },
-    req.query.m,
-    options,
-    function (err, locations) {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      console.log("nearby locations as a Set:", locations.locationSet);
-      res.json(locations.locationSet);
-    }
-  );
-});
-
+// Socket configurations
 io.on("connection", (socket) => {
   socket.driverId = socket.handshake.query.id;
 
@@ -77,6 +56,12 @@ io.on("connection", (socket) => {
     console.log(`${socket.driverId} no more looking for rider.`);
   });
 
+  socket.on("RiderFound", (tripRequest) => {
+    console.log(
+      `[Driver Service] ${tripRequest.driverId} found rider ${tripRequest.riderId}`
+    );
+  });
+
   socket.on("disconnect", () => {
     var client = redis.createClient(redisOptions);
     var geoClient = geoRedis.initialize(client);
@@ -86,6 +71,8 @@ io.on("connection", (socket) => {
     console.log(`A driver (${socket.driverId} - ${socket.id}) disconnected`);
   });
 });
+
+console.log("[Driver Service] Starting HTTP Service...");
 
 http.listen(3000, function () {
   console.log("[Driver Service] Listening on *:3000");

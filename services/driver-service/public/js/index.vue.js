@@ -6,14 +6,23 @@ var app = new Vue({
     drivers: [],
   },
   methods: {
-    addDriver() {
+    async addDriver() {
+      var result = await axios.post(
+        "http://localhost:3002/api/user/driver/login",
+        {
+          phoneNumber: "1",
+          password: "1",
+        }
+      );
+      console.log(result.data);
       let id = this.UUID();
       var driver = {
         driverId: id,
         lat: this.lat,
         long: this.long,
         isPinging: false,
-        socket: establishConnection(id),
+        socket: establishConnection(id, result.data),
+        matchingSocket: establishConnectionToMatchingService(id, result.data),
       };
       this.drivers.push(driver);
       this.resetInput();
@@ -63,8 +72,13 @@ var app = new Vue({
   },
 });
 
-const establishConnection = function (driverId) {
-  let soc = io.connect("", { query: `id=${driverId}` });
+const establishConnection = function (driverId, token = null) {
+  let soc = io.connect("", {
+    query: `id=${driverId}`,
+    extraHeaders: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   soc.on("connect", function () {
     console.log("Connected to the driver service", soc);
@@ -74,6 +88,31 @@ const establishConnection = function (driverId) {
     console.log("Disconnected from the driver service");
   });
 
+  return soc;
+};
+
+const establishConnectionToMatchingService = function (driverId, token = null) {
+  let soc = io.connect("http://localhost:3001", {
+    query: `id=${driverId}`,
+    extraHeaders: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  soc.on("connect", function () {
+    console.log("Connected to the matching service", soc);
+  });
+
+  soc.on("disconnect", function () {
+    console.log("Disconnected from the matching service");
+  });
+
+  soc.on("RiderFound", function (riderId) {
+    console.log("Rider Found");
+    var decision = confirm(`${driverId} found rider ${riderId}`);
+    console.log(decision);
+    soc.emit("TripRequestResponse", decision);
+  });
   return soc;
 };
 
